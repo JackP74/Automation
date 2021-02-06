@@ -40,19 +40,14 @@ namespace Automation
             return NewWaitTime;
         }
 
-        private int GetOrder()
-        {
-            return Items.Count();
-        }
-
         public void Add(Keys Key)
         {
-            Items.Add(new Move(GetWaitTime(), Key, GetOrder()));
+            Items.Add(new Move(GetWaitTime(), Key, RecordingGlobals.Order));
         }
 
         public void Add(MouseData.Type ActionType, Point Pt, MouseButtons Btn)
         {
-            Items.Add(new Move(GetWaitTime(), ActionType, Pt, Btn, GetOrder()));
+            Items.Add(new Move(GetWaitTime(), ActionType, Pt, Btn, RecordingGlobals.Order));
         }
 
         public List<Action> GetItems()

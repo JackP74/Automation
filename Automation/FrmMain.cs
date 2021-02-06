@@ -29,7 +29,7 @@ namespace Automation
         private readonly XmlSerializer MoveXML = new XmlSerializer(typeof(Actions));
         private readonly Action TempMoveAction = new Action();
 
-        private readonly string SavePath = Application.StartupPath + @"\list.xml";
+        private readonly string SavePath = Path.Combine(Application.StartupPath, "list.xml");
         private readonly Random Rnd = new Random(Guid.NewGuid().GetHashCode());
 
         private bool Record = false;
@@ -171,6 +171,30 @@ namespace Automation
                                 if (ForceStop)
                                     break;
 
+                                int MinX = 0;
+                                int MinY = 0;
+
+                                var NrOfScreens = Screen.AllScreens.Count();
+
+                                for (int i = 0; i <= NrOfScreens - 1; i++)
+                                {
+                                    var CurrentScreen = Screen.AllScreens[i];
+
+                                    if (MinX > CurrentScreen.Bounds.X)
+                                        MinX = CurrentScreen.Bounds.X;
+
+                                    if (MinY > CurrentScreen.Bounds.Y)
+                                        MinY = CurrentScreen.Bounds.Y;
+                                }
+
+                                int OffsetX = Math.Abs(0 - MinX);
+                                int OffsetY = Math.Abs(0 - MinY);
+
+                                int RealX = TopLeftPoint.Value.X - OffsetX;
+                                int RealY = TopLeftPoint.Value.Y - OffsetY;
+
+                                TopLeftPoint = new Point(RealX, RealY);
+
                                 Point? FinalPoint = GetImagePoint(TopLeftPoint, ImgSource.Size, CurrentAction.ImageLoc);
 
                                 if (!FinalPoint.HasValue)
@@ -286,13 +310,21 @@ namespace Automation
 
                 Record = false;
                 Listen = true;
+                List<Action> NewItems = new List<Action>();
 
-                List<Action> NewItems = Recording.GetItems();
+                NewItems.AddRange(Recording.GetItems());
+                NewItems.AddRange(ImageBaseRecorder.GetItems());
+                NewItems = NewItems.OrderBy(x => x.Order).ToList();
+
                 Recording.Stop();
+                ImageBaseRecorder.Stop();
 
                 ActionList.Items.AddRange(NewItems);
                 SaveList();
                 RefreshList();
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
 
                 return;
             }
@@ -306,6 +338,14 @@ namespace Automation
                 return;
 
             Recording.Add(NewKind, NewPoint, NewBtn);
+        }
+
+        public void AddRecording(MouseButtons NewBtn)
+        {
+            if (!Record)
+                return;
+
+            ImageBaseRecorder.NewRecord(NewBtn);
         }
 
         private string GetName(string FullPath)
@@ -895,8 +935,6 @@ namespace Automation
 
             if (ListImageLoc.Items.Count > 0)
                 ListImageLoc.SelectedIndex = 0;
-
-            ImageBaseRecorder.Start();
         }
 
         private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
@@ -908,15 +946,29 @@ namespace Automation
         private void KeyBoardHook_KeyDown(object sender, KeyEventArgs e)
         {
             // For recording
-            if (e.KeyCode == Keys.LShiftKey)
+            if (Record && e.KeyCode == Keys.LShiftKey)
                 ShiftDown = true;
+
+            if (Record && e.KeyCode == Keys.LMenu)
+            {
+                ImageBaseRecorder.ShowForm = true;
+            }
         }
 
         private void KeyBoardHook_KeyUp(object sender, KeyEventArgs e)
         {
             // For recording
             if (e.KeyCode == Keys.LShiftKey)
+            {
                 ShiftDown = false;
+                return;
+            }
+
+            if (Record && e.KeyCode == Keys.LMenu)
+            {
+                ImageBaseRecorder.ShowForm = false;
+                return;
+            }
 
             // WinKey ignored
             if (e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin)
@@ -933,7 +985,7 @@ namespace Automation
             if (e.KeyCode == Keys.PrintScreen)
             {
                 Bitmap Screenshot = ScreenCapture.GetScreenImage();
-                Screenshot.Save(Application.StartupPath + @"\screen.png", ImageFormat.Png);
+                Screenshot.Save(Path.Combine(Application.StartupPath, "screen.png"), ImageFormat.Png);
 
                 Screenshot.Dispose();
 
@@ -1049,12 +1101,20 @@ namespace Automation
                 return;
             }
 
-            ImageBaseRecorder.SetFormLoc(e.Location);
+            if (Record)
+                ImageBaseRecorder.SetFormLoc(e.Location);
         }
 
         private void MouseHook_MouseUp(object sender, HandledMouseEventArgs e)
         {
-            AddRecording(MouseData.Type.Click, e.Location, e.Button);
+            if (ImageBaseRecorder.ShowForm)
+            {
+                AddRecording(e.Button);
+            }
+            else
+            {
+                AddRecording(MouseData.Type.Click, e.Location, e.Button);
+            }
         }
 
         private void MouseHook_MouseWheel(object sender, HandledMouseEventArgs e)
@@ -1407,7 +1467,10 @@ namespace Automation
             {
                 BtnRecord.Text = "Cancel";
 
+                RecordingGlobals.Order = ActionList.GetOrder(TempMoveAction.OnKey);
+
                 Recording.Start(TempMoveAction.OnKey, TempMoveAction.MouseSpeed);
+                ImageBaseRecorder.Start(TempMoveAction.OnKey, TempMoveAction.MouseSpeed, TempMoveAction.ImageLoc);
 
                 Listen = false;
                 Record = true;
@@ -1420,6 +1483,10 @@ namespace Automation
                 Listen = true;
 
                 Recording.Stop();
+                ImageBaseRecorder.Stop();
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             }
         }
 

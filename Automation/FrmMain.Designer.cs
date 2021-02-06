@@ -30,6 +30,7 @@ namespace Automation
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FrmMain));
             this.BtnRecord = new System.Windows.Forms.Button();
             this.ChkLoopKey = new System.Windows.Forms.CheckBox();
             this.NumericWaitTime = new System.Windows.Forms.NumericUpDown();
@@ -456,9 +457,10 @@ namespace Automation
             this.Controls.Add(this.ListMoveType);
             this.Controls.Add(this.BtnImageBrw);
             this.Controls.Add(this.ListImageLoc);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FrmMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Automation";
+            this.Text = "Automation Alpha";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmMain_FormClosing);
             this.Load += new System.EventHandler(this.FrmMain_Load);
             ((System.ComponentModel.ISupportInitialize)(this.NumericWaitTime)).EndInit();
