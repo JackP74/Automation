@@ -138,32 +138,13 @@ namespace Automation
 
         public static Bitmap GetScreenImage()
         {
-            int MinWidth = 0;
-            int MinHeight = 0;
+            int MinX = Screen.AllScreens.Min(x => x.Bounds.X);
+            int MinY = Screen.AllScreens.Min(x => x.Bounds.Y);
 
-            int MaxWidth = 0;
-            int MaxHeight = 0;
+            int MaxX = Screen.AllScreens.Max(x => x.Bounds.X + x.Bounds.Width + Math.Abs(MinX));
+            int MaxY = Screen.AllScreens.Max(x => x.Bounds.Y + x.Bounds.Height + Math.Abs(MinY));
 
-            var NrOfScreens = Screen.AllScreens.Count();
-
-            for (int i = 0; i <= NrOfScreens - 1; i++)
-            {
-                var CurrentScreen = Screen.AllScreens[i];
-
-                if (MinWidth > CurrentScreen.Bounds.X)
-                    MinWidth = CurrentScreen.Bounds.X;
-
-                if (MinHeight > CurrentScreen.Bounds.Y)
-                    MinHeight = CurrentScreen.Bounds.Y;
-
-                if (MaxWidth < CurrentScreen.Bounds.X + CurrentScreen.Bounds.Width + Math.Abs(MinWidth))
-                    MaxWidth = CurrentScreen.Bounds.X + CurrentScreen.Bounds.Width + Math.Abs(MinWidth);
-
-                if (MaxHeight < CurrentScreen.Bounds.Y + CurrentScreen.Bounds.Height + Math.Abs(MinHeight))
-                    MaxHeight = CurrentScreen.Bounds.Y + CurrentScreen.Bounds.Height + Math.Abs(MinHeight);
-            }
-
-            return CaptureScreen(MinWidth, MinHeight, MaxWidth, MaxHeight);
+            return CaptureScreen(MinX, MinY, MaxX, MaxY);
         }
     }
 }

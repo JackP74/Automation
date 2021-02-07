@@ -120,7 +120,7 @@ namespace Automation
             ShowForm = false;
 
             Bitmap NewImg = ScreenCapture.CaptureScreen(ImageForm.Location.X, ImageForm.Location.Y, ImageForm.Width, ImageForm.Height);
-            Items.Add(new ImageData(GetWaitTime(), NewImg, Btn, RecordingGlobals.Order));
+            Items.Add(new ImageData(GetWaitTime(), NewImg, Btn, Globals.Order));
 
             ShowForm = true;
         }

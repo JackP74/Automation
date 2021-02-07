@@ -21,7 +21,6 @@ namespace Automation
         private readonly MouseLowLevelHook MouseHook = new MouseLowLevelHook();
 
         private bool ActionInProgress = false;
-        private bool ForceStop = false;
         private bool SetTxtPosition = false;
         private bool Listen = true;
 
@@ -30,7 +29,6 @@ namespace Automation
         private readonly Action TempMoveAction = new Action();
 
         private readonly string SavePath = Path.Combine(Application.StartupPath, "list.xml");
-        private readonly Random Rnd = new Random(Guid.NewGuid().GetHashCode());
 
         private bool Record = false;
         private bool ShiftDown = false;
@@ -39,13 +37,6 @@ namespace Automation
         #endregion
 
         #region "Win32"
-        [DllImport("user32.dll")]
-        static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, int dwExtraInfo);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SetCursorPos(int x, int y);
-
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool GetCursorPos(out POINT lpPoint);
@@ -55,27 +46,7 @@ namespace Automation
         #endregion
 
         #region "Enums"
-        [Flags]
-        public enum MouseEventFlags : uint
-        {
-            LEFTDOWN = 0x0002,
-            LEFTUP = 0x0004,
-            MIDDLEDOWN = 0x0020,
-            MIDDLEUP = 0x0040,
-            MOVE = 0x0001,
-            ABSOLUTE = 0x8000,
-            RIGHTDOWN = 0x0008,
-            RIGHTUP = 0x0010,
-            WHEEL = 0x0800,
-            XDOWN = 0x0080,
-            XUP = 0x0100
-        }
 
-        public enum MouseEventDataXButtons : uint
-        {
-            XBUTTON1 = 0x0001,
-            XBUTTON2 = 0x0002
-        }
         #endregion
 
         #region "Functions"
@@ -89,135 +60,6 @@ namespace Automation
             MouseHook.MouseMove += MouseHook_MouseMove;
             MouseHook.MouseUp += MouseHook_MouseUp;
             MouseHook.MouseWheel += MouseHook_MouseWheel;
-        }
-
-        private void StartActions(List<Action> ActionList)
-        {
-            foreach (Action CurrentAction in ActionList)
-            {
-                if (ForceStop)
-                    break;
-
-                switch (CurrentAction.ActionType)
-                {
-                    case Action.Type.Mouse:
-                        {
-                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
-                            {
-                                Thread.Sleep(CurrentAction.WaitTime);
-
-                                int NewX = CurrentAction.MovePoint.X;
-                                int NewY = CurrentAction.MovePoint.Y;
-
-                                if (CurrentAction.MoveType == Action.MoveCalcType.Relative)
-                                {
-                                    GetCursorPos(out POINT CurrentPoint);
-
-                                    NewX = CurrentPoint.X + NewX;
-                                    NewY = CurrentPoint.Y + NewY;
-                                }
-
-                                MoveMouse(NewX, NewY, CurrentAction.MouseSpeed);
-
-                                if (CurrentAction.AutoClick)
-                                    ClickMouse(CurrentAction.MouseBtn);
-
-                                if (ForceStop)
-                                    break;
-                            }
-
-                            break;
-                        }
-
-                    case Action.Type.KeyPress:
-                        {
-                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
-                            {
-                                Thread.Sleep(CurrentAction.WaitTime);
-
-                                SendKeys.SendWait(KeyToString(CurrentAction.ActionKey));
-
-                                if (ForceStop)
-                                    break;
-                            }
-
-                            break;
-                        }
-
-                    case Action.Type.ImageSearch:
-                        {
-                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
-                            {
-                                Thread.Sleep(CurrentAction.WaitTime);
-
-                                Bitmap Screenshot = ScreenCapture.GetScreenImage();
-                                Bitmap ImgSource = (Bitmap)Image.FromFile(CurrentAction.ImagePath);
-                                Point? TopLeftPoint = ImageLocation(ref Screenshot, ref ImgSource);
-
-                                if (!TopLeftPoint.HasValue)
-                                {
-                                    while (!TopLeftPoint.HasValue)
-                                    {
-                                        Thread.Sleep(500);
-
-                                        Screenshot = ScreenCapture.GetScreenImage();
-                                        TopLeftPoint = ImageLocation(ref Screenshot, ref ImgSource);
-
-                                        if (ForceStop)
-                                            break;
-                                    }
-                                }
-
-                                if (ForceStop)
-                                    break;
-
-                                int MinX = 0;
-                                int MinY = 0;
-
-                                var NrOfScreens = Screen.AllScreens.Count();
-
-                                for (int i = 0; i <= NrOfScreens - 1; i++)
-                                {
-                                    var CurrentScreen = Screen.AllScreens[i];
-
-                                    if (MinX > CurrentScreen.Bounds.X)
-                                        MinX = CurrentScreen.Bounds.X;
-
-                                    if (MinY > CurrentScreen.Bounds.Y)
-                                        MinY = CurrentScreen.Bounds.Y;
-                                }
-
-                                int OffsetX = Math.Abs(0 - MinX);
-                                int OffsetY = Math.Abs(0 - MinY);
-
-                                int RealX = TopLeftPoint.Value.X - OffsetX;
-                                int RealY = TopLeftPoint.Value.Y - OffsetY;
-
-                                TopLeftPoint = new Point(RealX, RealY);
-
-                                Point? FinalPoint = GetImagePoint(TopLeftPoint, ImgSource.Size, CurrentAction.ImageLoc);
-
-                                if (!FinalPoint.HasValue)
-                                    continue;
-
-                                MoveMouse(FinalPoint.Value.X, FinalPoint.Value.Y, CurrentAction.MouseSpeed);
-
-                                Screenshot.Dispose();
-                                ImgSource.Dispose();
-
-                                if (ForceStop)
-                                    break;
-                            }
-
-                            break;
-                        }
-
-                    default:
-                        {
-                            continue;
-                        }
-                }
-            }
         }
 
         private void SaveList()
@@ -252,7 +94,10 @@ namespace Automation
             }
             catch (Exception ex)
             {
-                CMBox.Show("Error", "Couldn't load, Error: " + ex.Message, Style.Error, Buttons.OK, ex.ToString());
+                ActionList = new Actions();
+                SaveList();
+
+                CMBox.Show("Error", "Couldn't load. File reset, Error: " + ex.Message, Style.Error, Buttons.OK, ex.ToString());
             }
         }
 
@@ -326,10 +171,15 @@ namespace Automation
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
 
-                return;
+                foreach (Control control in this.Controls)
+                {
+                    control.Enabled = true;
+                }
             }
-
-            Recording.Add(NewKey);
+            else
+            {
+                Recording.Add(NewKey);
+            }
         }
 
         public void AddRecording(MouseData.Type NewKind, Point NewPoint, MouseButtons NewBtn)
@@ -346,6 +196,18 @@ namespace Automation
                 return;
 
             ImageBaseRecorder.NewRecord(NewBtn);
+        }
+
+        private void ResetKeyHandle()
+        {
+            KeyBoardHook.KeyUp -= SetOnKey_KeyUp;
+            KeyBoardHook.KeyUp += KeyBoardHook_KeyUp;
+        }
+
+        private void SetNewKeyHandle()
+        {
+            KeyBoardHook.KeyUp -= KeyBoardHook_KeyUp;
+            KeyBoardHook.KeyUp += SetOnKey_KeyUp;
         }
 
         private string GetName(string FullPath)
@@ -370,546 +232,253 @@ namespace Automation
             NewThread.Start();
         }
 
-        private void ClickMouse(MouseButtons Btn)
-        {
-            switch (Btn)
-            {
-                case MouseButtons.Left:
-                    {
-                        mouse_event((uint)MouseEventFlags.LEFTDOWN, 0, 0, 0, 0);
-                        mouse_event((uint)MouseEventFlags.LEFTUP, 0, 0, 0, 0);
-                        break;
-                    }
-
-                case MouseButtons.Right:
-                    {
-                        mouse_event((uint)MouseEventFlags.RIGHTDOWN, 0, 0, 0, 0);
-                        mouse_event((uint)MouseEventFlags.RIGHTUP, 0, 0, 0, 0);
-                        break;
-                    }
-
-                case MouseButtons.Middle:
-                    {
-                        mouse_event((uint)MouseEventFlags.MIDDLEDOWN, 0, 0, 0, 0);
-                        mouse_event((uint)MouseEventFlags.MIDDLEUP, 0, 0, 0, 0);
-                        break;
-                    }
-
-                case MouseButtons.XButton1:
-                    {
-                        mouse_event((uint)MouseEventFlags.XDOWN, 0, 0, (uint)MouseEventDataXButtons.XBUTTON1, 0);
-                        mouse_event((uint)MouseEventFlags.XUP, 0, 0, (uint)MouseEventDataXButtons.XBUTTON1, 0);
-                        break;
-                    }
-
-                case MouseButtons.XButton2:
-                    {
-                        mouse_event((uint)MouseEventFlags.XDOWN, 0, 0, (uint)MouseEventDataXButtons.XBUTTON2, 0);
-                        mouse_event((uint)MouseEventFlags.XUP, 0, 0, (uint)MouseEventDataXButtons.XBUTTON2, 0);
-                        break;
-                    }
-
-                default:
-                    {
-                        return;
-                    }
-            }
-        }
-
-        private void MoveMouse(int X, int Y, Action.MoveSpeed Speed)
-        {
-            switch (Speed)
-            {
-                case Action.MoveSpeed.Instant:
-                    {
-                        SetCursorPos(X, Y);
-                        break;
-                    }
-
-                case  Action.MoveSpeed.LineSlow:
-                    {
-                        MoveLine(X, Y, 25, 25);
-                        break;
-                    }
-
-                case Action.MoveSpeed.LineFast:
-                    {
-                        MoveLine(X, Y, 5, 25);
-                        break;
-                    }
-
-                case Action.MoveSpeed.CurveSlow:
-                    {
-                        SmoothMotion(X, Y, 25, 2);
-                        break;
-                    }
-
-                case Action.MoveSpeed.CurveFast:
-                    {
-                        SmoothMotion(X, Y, 5, 2);
-                        break;
-                    }
-
-                default:
-                    {
-                        return;
-                    }
-            }
-        }
-
-        private void MoveLine(int X, int Y, int Sleep, int PointCount)
-        {
-            float CurTimeMs = 0;
-            float TargetTimeMs = 1000;
-
-            GetCursorPos(out POINT CPoint);
-
-            float cX = CPoint.X;
-            float cY = CPoint.Y;
-
-            float oX = cX;
-            float oY = cY;
-
-            while (CurTimeMs < TargetTimeMs)
-            {
-                CurTimeMs += TargetTimeMs / PointCount;
-
-                cX = UpdateLocation(oX, X, CurTimeMs / TargetTimeMs);
-                cY = UpdateLocation(oY, Y, CurTimeMs / TargetTimeMs);
-
-                SetCursorPos((int)cX, (int)cY);
-
-                if (cX == oX && cY == oY)
-                    break;
-
-                Thread.Sleep(Sleep);
-
-                if (ForceStop)
-                    return;
-            }
-
-            SetCursorPos(X, Y);
-        }
-
-        private void SmoothMotion(int X, int Y, int Sleep, int Speed)
-        {
-            GetCursorPos(out POINT OrgPt);
-
-            float halfx = (X + OrgPt.X) / 2;
-            float halfy = (Y + OrgPt.Y) / 2;
-
-            float ptX = OrgPt.X + Sign(X - halfx);
-            float ptY = OrgPt.Y + Sign(Y - halfy);
-
-            while (Math.Abs(X - ptX) > 3 | Math.Abs(Y - ptY) > 3)
-            {
-                if (PtBetween(Convert.ToInt64(ptX), OrgPt.X, Convert.ToInt64(halfx), X))
-                    ptX += ((X - ptX) / Speed);
-                else
-                    ptX += ((ptX - OrgPt.X) / Speed);
-
-                if (PtBetween(Convert.ToInt64(ptY), OrgPt.Y, Convert.ToInt64(halfy), Y))
-                    ptY += ((Y - ptY) / Speed);
-                else
-                    ptY += ((ptY - OrgPt.Y) / Speed);
-
-                if (ptX == OrgPt.X && ptY == OrgPt.Y)
-                    break;
-
-                SetCursorPos((int)ptX, (int)ptY);
-                Thread.Sleep(Sleep);
-
-                if (ForceStop)
-                    return;
-            }
-
-            SetCursorPos(X, Y);
-        }
-
-        private float UpdateLocation(float Origin, float Destination, float Time)
-        {
-            return (Origin + (Destination - Origin) * Time);
-        }
-
-        private long Sign(Single X)
-        {
-            return X == 0 ? 0 : Convert.ToInt64(X / Math.Abs(X));
-        }
-
-        private bool PtBetween(long X, long x0, long x1, long x2)
-        {
-            return x0 < x2 ? X > x1 : X < x1;
-        }
-
         private string KeyToString(Keys Key)
         {
             switch (Key)
             {
                 case Keys.Add:
-                    {
                         return "+";
-                    }
 
                 case Keys.Decimal:
-                    {
                         return ".";
-                    }
 
-                case Keys.Divide:
-                    {
-                        return "/";
-                    }
+                case Keys.Divide:return "/";
 
                 case Keys.Multiply:
-                    {
-                        return "*";
-                    }
+                    return "*";
 
                 case Keys.OemBackslash:
-                    {
-                        return @"\";
-                    }
+                    return @"\";
 
                 case Keys.OemCloseBrackets:
-                    {
-                        return "]";
-                    }
+                    return "]";
 
                 case Keys.OemMinus:
-                    {
-                        return "-";
-                    }
+                    return "-";
 
                 case Keys.OemOpenBrackets:
-                    {
-                        return "[";
-                    }
+                    return "[";
 
                 case Keys.OemPeriod:
-                    {
-                        return ".";
-                    }
+                    return ".";
 
                 case Keys.OemPipe:
-                    {
-                        return "|";
-                    }
+                    return "|";
 
                 case Keys.OemQuestion:
-                    {
-                        return "/";
-                    }
+                    return "/";
 
                 case Keys.OemQuotes:
-                    {
-                        return "\"";
-                    }
+                    return "\"";
 
                 case Keys.OemSemicolon:
-                    {
-                        return ";";
-                    }
+                    return ";";
 
                 case Keys.Oemcomma:
-                    {
-                        return ",";
-                    }
+                    return ",";
 
                 case Keys.Oemplus:
-                    {
-                        return "+";
-                    }
+                    return "+";
 
                 case Keys.Oemtilde:
-                    {
-                        return "`";
-                    }
+                    return "`";
 
                 case Keys.Separator:
-                    {
-                        return "-";
-                    }
+                    return "-";
 
                 case Keys.Subtract:
-                    {
-                        return "-";
-                    }
+                    return "-";
 
                 case Keys.D0:
-                    {
-                        return "0";
-                    }
+                    return "0";
 
                 case Keys.D1:
-                    {
-                        return "1";
-                    }
+                    return "1";
 
                 case Keys.D2:
-                    {
-                        return "2";
-                    }
+                    return "2";
 
                 case Keys.D3:
-                    {
-                        return "3";
-                    }
+                    return "3";
 
                 case Keys.D4:
-                    {
-                        return "4";
-                    }
+                    return "4";
 
                 case Keys.D5:
-                    {
-                        return "5";
-                    }
+                    return "5";
 
                 case Keys.D6:
-                    {
-                        return "6";
-                    }
+                    return "6";
 
                 case Keys.D7:
-                    {
-                        return "7";
-                    }
+                    return "7";
 
                 case Keys.D8:
-                    {
-                        return "8";
-                    }
+                    return "8";
 
                 case Keys.D9:
-                    {
-                        return "9";
-                    }
+                    return "9";
 
                 case Keys.NumPad0:
-                    {
-                        return "0";
-                    }
+                    return "0";
 
                 case Keys.NumPad1:
-                    {
-                        return "1";
-                    }
+                    return "1";
 
                 case Keys.NumPad2:
-                    {
-                        return "2";
-                    }
+                    return "2";
 
                 case Keys.NumPad3:
-                    {
-                        return "3";
-                    }
+                    return "3";
 
                 case Keys.NumPad4:
-                    {
-                        return "4";
-                    }
+                    return "4";
 
                 case Keys.NumPad5:
-                    {
-                        return "5";
-                    }
+                    return "5";
 
                 case Keys.NumPad6:
-                    {
-                        return "6";
-                    }
+                    return "6";
 
                 case Keys.NumPad7:
-                    {
-                        return "7";
-                    }
+                    return "7";
 
                 case Keys.NumPad8:
-                    {
-                        return "8";
-                    }
+                    return "8";
 
                 case Keys.NumPad9:
-                    {
-                        return "9";
-                    }
+                    return "9";
 
                 case Keys.Space:
-                    {
-                        return " ";
-                    }
+                    return " ";
 
                 case Keys.Return:
-                    {
-                        return "{ENTER}";
-                    }
+                    return "{ENTER}";
 
                 default:
-                    {
-                        return Key.ToString().ToLower();
-                    }
+                    return Key.ToString().ToLower();
             }
         }
 
-        private int RandomNumber(int Min, int Max)
+        private void StartActions(List<Action> ActionList)
         {
-            return Rnd.Next(Min, Max + 1);
-        }
-
-        private Point? ImageLocation(ref Bitmap Source, ref Bitmap bmp)
-        {
-            if (Source == null || bmp == null)
-                return null;
-
-            if (Source.Width == bmp.Width && Source.Height == bmp.Height)
+            foreach (Action CurrentAction in ActionList)
             {
-                if (Source.GetPixel(0, 0) == bmp.GetPixel(0, 0))
-                    return new Point(0, 0);
-                else
-                    return null;
-            }
-            else if (Source.Width < bmp.Width || Source.Height < bmp.Height)
-                return null;
+                if (Globals.ForceStop)
+                    break;
 
-            Rectangle sr = new Rectangle(0, 0, Source.Width, Source.Height);
-            Rectangle br = new Rectangle(0, 0, bmp.Width, bmp.Height);
-
-            BitmapData srcLock = Source.LockBits(sr, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
-            BitmapData bmpLock = bmp.LockBits(br, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
-
-            int sStride = srcLock.Stride;
-            int bStride = bmpLock.Stride;
-
-            int srcSz = sStride * Source.Height;
-            int bmpSz = bStride * bmp.Height;
-
-            byte[] srcBuff = new byte[srcSz + 1];
-            byte[] bmpBuff = new byte[bmpSz + 1];
-
-            Marshal.Copy(srcLock.Scan0, srcBuff, 0, srcSz);
-            Marshal.Copy(bmpLock.Scan0, bmpBuff, 0, bmpSz);
-            bmp.UnlockBits(bmpLock);
-            Source.UnlockBits(srcLock);
-
-            int x, y, x2, y2, sx, sy, bx, by, sw, sh, bw, bh;
-            byte r, g, b;
-            Point? p = null;
-
-            bw = bmp.Width;
-            bh = bmp.Height;
-
-            sw = Source.Width - bw;
-            sh = Source.Height - bh;
-
-            for (y = 0; y <= sh; y++)
-            {
-                sy = y * sStride;
-
-                for (x = 0; x <= sw; x++)
+                switch (CurrentAction.ActionType)
                 {
-                    sx = sy + x * 3;
-                    r = srcBuff[sx + 2];
-                    g = srcBuff[sx + 1];
-                    b = srcBuff[sx];
-
-                    if (r == bmpBuff[2] && g == bmpBuff[1] && b == bmpBuff[0])
-                    {
-                        p = new Point(x, y);
-
-                        for (y2 = 0; y2 <= bh - 1; y2++)
+                    case Action.Type.Mouse:
                         {
-                            by = y2 * bStride;
-
-                            for (x2 = 0; x2 <= bw - 1; x2++)
+                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
                             {
-                                bx = by + x2 * 3;
-                                sy = (y + y2) * sStride;
-                                sx = sy + (x + x2) * 3;
-                                r = srcBuff[sx + 2];
-                                g = srcBuff[sx + 1];
-                                b = srcBuff[sx];
+                                Thread.Sleep(CurrentAction.WaitTime);
 
-                                if (!(r == bmpBuff[bx + 2] && g == bmpBuff[bx + 1] && b == bmpBuff[bx]))
+                                int NewX = CurrentAction.MovePoint.X;
+                                int NewY = CurrentAction.MovePoint.Y;
+
+                                if (CurrentAction.MoveType == Action.MoveCalcType.Relative)
                                 {
-                                    p = null;
-                                    sy = y * sStride;
-                                    break;
+                                    GetCursorPos(out POINT CurrentPoint);
+
+                                    NewX = CurrentPoint.X + NewX;
+                                    NewY = CurrentPoint.Y + NewY;
                                 }
+
+                                MouseHelper.MoveMouse(NewX, NewY, CurrentAction.MouseSpeed);
+
+                                if (CurrentAction.AutoClick)
+                                    MouseHelper.ClickMouse(CurrentAction.MouseBtn);
+
+                                if (Globals.ForceStop)
+                                    break;
                             }
 
-                            if (p == null )
-                                break;
+                            break;
                         }
-                    }
 
-                    if (p != null )
-                        break;
+                    case Action.Type.KeyPress:
+                        {
+                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
+                            {
+                                Thread.Sleep(CurrentAction.WaitTime);
+
+                                SendKeys.SendWait(KeyToString(CurrentAction.ActionKey));
+
+                                if (Globals.ForceStop)
+                                    break;
+                            }
+
+                            break;
+                        }
+
+                    case Action.Type.ImageSearch:
+                        {
+                            for (int I = 1; I <= CurrentAction.LoopCount; I++)
+                            {
+                                Thread.Sleep(CurrentAction.WaitTime);
+
+                                Bitmap Screenshot = ScreenCapture.GetScreenImage();
+                                Bitmap ImgSource = (Bitmap)Image.FromFile(CurrentAction.ImagePath);
+                                Point? TopLeftPoint = MouseHelper.ImageLocation(ref Screenshot, ref ImgSource);
+
+                                if (!TopLeftPoint.HasValue)
+                                {
+                                    while (!TopLeftPoint.HasValue)
+                                    {
+                                        Thread.Sleep(500);
+
+                                        Screenshot = ScreenCapture.GetScreenImage();
+                                        TopLeftPoint = MouseHelper.ImageLocation(ref Screenshot, ref ImgSource);
+
+                                        if (Globals.ForceStop)
+                                            break;
+                                    }
+                                }
+
+                                if (Globals.ForceStop)
+                                    break;
+
+                                if (!TopLeftPoint.HasValue)
+                                    continue;
+
+                                int MinX = Screen.AllScreens.Min(x => x.Bounds.X);
+                                int MinY = Screen.AllScreens.Min(x => x.Bounds.Y);
+
+                                if (MinX < 0 || MinY < 0)
+                                {
+                                    int OffsetX = Math.Abs(0 - MinX);
+                                    int OffsetY = Math.Abs(0 - MinY);
+
+                                    int RealX = TopLeftPoint.Value.X - OffsetX;
+                                    int RealY = TopLeftPoint.Value.Y - OffsetY;
+
+                                    TopLeftPoint = new Point(RealX, RealY);
+                                }
+
+                                Point? FinalPoint = MouseHelper.GetImagePoint(TopLeftPoint, ImgSource.Size, CurrentAction.ImageLoc);
+
+                                if (!FinalPoint.HasValue)
+                                    continue;
+
+                                MouseHelper.MoveMouse(FinalPoint.Value.X, FinalPoint.Value.Y, CurrentAction.MouseSpeed);
+
+                                Screenshot.Dispose();
+                                ImgSource.Dispose();
+
+                                if (Globals.ForceStop)
+                                    break;
+                            }
+
+                            break;
+                        }
+
+                    default:
+                        {
+                            continue;
+                        }
                 }
-
-                if (p != null)
-                    break;
-            }
-
-            return p;
-        }
-
-        private Point? GetImagePoint(Point? OrgPoint, Size ImgSize, Action.Location LocType)
-        {
-            if (!OrgPoint.HasValue)
-                return null;
-
-            switch (LocType)
-            {
-                case Action.Location.LeftTop:
-                    {
-                        return OrgPoint;
-                    }
-
-                case Action.Location.LeftMiddle:
-                    {
-                        return new Point(OrgPoint.Value.X, OrgPoint.Value.Y + (ImgSize.Height / 2));
-                    }
-
-                case Action.Location.LeftBottom:
-                    {
-                        return new Point(OrgPoint.Value.X, OrgPoint.Value.Y + ImgSize.Height);
-                    }
-
-                case Action.Location.MiddleTop:
-                    {
-                        return new Point(OrgPoint.Value.X + (ImgSize.Width / 2), OrgPoint.Value.Y);
-                    }
-
-                case Action.Location.Middle:
-                    {
-                        return new Point(OrgPoint.Value.X + (ImgSize.Width / 2), OrgPoint.Value.Y + (ImgSize.Height / 2));
-                    }
-
-                case Action.Location.MiddleBottom:
-                    {
-                        return new Point(OrgPoint.Value.X + (ImgSize.Width / 2), OrgPoint.Value.Y + ImgSize.Height);
-                    }
-
-                case Action.Location.RightTop:
-                    {
-                        return new Point(OrgPoint.Value.X + ImgSize.Width, OrgPoint.Value.Y);
-                    }
-
-                case Action.Location.RightMiddle:
-                    {
-                        return new Point(OrgPoint.Value.X + ImgSize.Width, OrgPoint.Value.Y + (ImgSize.Height / 2));
-                    }
-
-                case Action.Location.RightBottom:
-                    {
-                        return new Point(OrgPoint.Value.X + ImgSize.Width, OrgPoint.Value.Y + ImgSize.Height);
-                    }
-
-                default:
-                    {
-                        return OrgPoint;
-                    }
             }
         }
         #endregion
@@ -935,6 +504,28 @@ namespace Automation
 
             if (ListImageLoc.Items.Count > 0)
                 ListImageLoc.SelectedIndex = 0;
+
+            TxtOnKey.LostFocus += (ns, ne) => 
+            {
+                if (BtnOnKey.Text == "Cancel")
+                {
+                    TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
+                    BtnOnKey.Text = "Set";
+
+                    ResetKeyHandle();
+                }
+            };
+
+            TxtNewAction.LostFocus += (ns, ne) =>
+            {
+                if (BtnNewKey.Text == "Cancel")
+                {
+                    TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
+                    BtnNewKey.Text = "Set";
+
+                    ResetKeyHandle();
+                }
+            };
         }
 
         private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
@@ -950,8 +541,75 @@ namespace Automation
                 ShiftDown = true;
 
             if (Record && e.KeyCode == Keys.LMenu)
-            {
                 ImageBaseRecorder.ShowForm = true;
+        }
+
+        private void SetOnKey_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (BtnOnKey.Text == "Cancel" && TxtOnKey.Text == "Set key..." && GetActiveWindow() == this.Handle)
+            {
+                switch (e.KeyCode)
+                {
+                    case Keys.LWin:
+                    case Keys.RWin:
+                    case Keys.Pause:
+                    case Keys.LShiftKey:
+                    case Keys.LMenu:
+                    case Keys.PrintScreen:
+                    case Keys.End:
+                    case Keys.Escape:
+                        {
+                            TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
+                            BtnOnKey.Text = "Set";
+                            ResetKeyHandle();
+                            break;
+                        }
+
+                    default:
+                        {
+                            TempMoveAction.OnKey = e.KeyCode;
+                            TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
+                            BtnOnKey.Text = "Set";
+                            ResetKeyHandle();
+                            break;
+                        }
+                }
+                return;
+            }
+            else if (BtnNewKey.Text == "Cancel" && TxtNewAction.Text == "Set key..." && GetActiveWindow() == this.Handle)
+            {
+                switch (e.KeyCode)
+                {
+                    case Keys.LWin:
+                    case Keys.RWin:
+                    case Keys.Pause:
+                    case Keys.LShiftKey:
+                    case Keys.LMenu:
+                    case Keys.PrintScreen:
+                    case Keys.End:
+                    case Keys.Escape:
+                        {
+                            TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
+                            BtnNewKey.Text = "Set";
+                            ResetKeyHandle();
+                            break;
+                        }
+
+                    default:
+                        {
+                            TempMoveAction.ActionKey = e.KeyCode;
+                            TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
+                            BtnNewKey.Text = "Set";
+                            ResetKeyHandle();
+                            break;
+                        }
+                }
+                return;
+            }
+            else
+            {
+                ResetKeyHandle();
+                KeyBoardHook_KeyUp(sender, e);
             }
         }
 
@@ -977,7 +635,7 @@ namespace Automation
             // End is force stop
             if (e.KeyCode == Keys.End)
             {
-                ForceStop = true;
+                Globals.ForceStop = true;
                 return;
             }
 
@@ -992,53 +650,7 @@ namespace Automation
                 return;
             }
 
-            // Set key for new action
-            if (BtnOnKey.Text == "Cancel" && TxtOnKey.Text == "Set key..." && GetActiveWindow() == this.Handle)
-            {
-                switch (e.KeyCode)
-                {
-                    case Keys.Escape:
-                        {
-                            TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
-                            BtnOnKey.Text = "Set";
-                            break;
-                        }
-
-                    default:
-                        {
-                            TempMoveAction.OnKey = e.KeyCode;
-                            TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
-                            BtnOnKey.Text = "Set";
-                            break;
-                        }
-                }
-                return;
-            }
-
-            // Set what key to send
-            if (BtnNewKey.Text == "Cancel" && TxtNewAction.Text == "Set key..." && GetActiveWindow() == this.Handle)
-            {
-                switch (e.KeyCode)
-                {
-                    case Keys.Escape:
-                        {
-                            TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
-                            BtnNewKey.Text = "Set";
-                            break;
-                        }
-
-                    default:
-                        {
-                            TempMoveAction.ActionKey = e.KeyCode;
-                            TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
-                            BtnNewKey.Text = "Set";
-                            break;
-                        }
-                }
-                return;
-            }
-
-            // Start action
+            // Start action if this form is not focused
             if (Listen && GetActiveWindow() != this.Handle)
             {
                 if (ActionInProgress)
@@ -1053,24 +665,24 @@ namespace Automation
                 {
                     StartThread(() =>
                     {
-                        ForceStop = false;
+                        Globals.ForceStop = false;
                         ActionInProgress = true;
 
-                        while (!ForceStop)
+                        while (!Globals.ForceStop)
                             StartActions(CurrentList);
 
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
 
                         ActionInProgress = false;
-                        ForceStop = false;
+                        Globals.ForceStop = false;
                     });
                 }
                 else
                 {
                     StartThread(() =>
                     {
-                        ForceStop = false;
+                        Globals.ForceStop = false;
                         ActionInProgress = true;
 
                         StartActions(CurrentList);
@@ -1079,14 +691,13 @@ namespace Automation
                         GC.WaitForPendingFinalizers();
 
                         ActionInProgress = false;
-                        ForceStop = false;
+                        Globals.ForceStop = false;
                     });
                 }
                 return;
             }
-
             // Recording actions
-            if (Record)
+            else if (Record)
             {
                 AddRecording(e.KeyCode);
                 return;
@@ -1255,11 +866,15 @@ namespace Automation
                 TxtOnKey.Text = "Set key...";
                 BtnOnKey.Text = "Cancel";
                 TxtOnKey.Focus();
+
+                SetNewKeyHandle();
             }
             else
             {
                 TxtOnKey.Text = TempMoveAction.OnKey == Keys.Escape ? string.Empty : TempMoveAction.OnKey.ToString();
                 BtnOnKey.Text = "Set";
+
+                ResetKeyHandle();
             }
         }
 
@@ -1281,11 +896,15 @@ namespace Automation
                 TxtNewAction.Text = "Set key...";
                 BtnNewKey.Text = "Cancel";
                 TxtNewAction.Focus();
+
+                SetNewKeyHandle();
             }
             else
             {
                 TxtNewAction.Text = TempMoveAction.ActionKey == Keys.Escape ? string.Empty : TempMoveAction.ActionKey.ToString();
                 BtnNewKey.Text = "Set";
+
+                ResetKeyHandle();
             }
         }
 
@@ -1408,7 +1027,7 @@ namespace Automation
                 return;
             }
 
-            if ((string.IsNullOrWhiteSpace(TxtNewAction.Text)))
+            if (string.IsNullOrWhiteSpace(TxtNewAction.Text))
             {
                 CMBox.Show("Warning", "No action set", Style.Warning, Buttons.OK);
                 return;
@@ -1439,9 +1058,7 @@ namespace Automation
                         }
 
                     default:
-                        {
-                            return;
-                        }
+                        return;
                 }
 
                 ActionList.Items.Add(NewAction);
@@ -1467,13 +1084,19 @@ namespace Automation
             {
                 BtnRecord.Text = "Cancel";
 
-                RecordingGlobals.Order = ActionList.GetOrder(TempMoveAction.OnKey);
+                Globals.Order = ActionList.GetOrder(TempMoveAction.OnKey);
 
                 Recording.Start(TempMoveAction.OnKey, TempMoveAction.MouseSpeed);
                 ImageBaseRecorder.Start(TempMoveAction.OnKey, TempMoveAction.MouseSpeed, TempMoveAction.ImageLoc);
 
                 Listen = false;
                 Record = true;
+
+                foreach (Control control in this.Controls)
+                {
+                    if (control != BtnRecord)
+                        control.Enabled = false;
+                }
             }
             else if (Record == true)
             {
@@ -1487,6 +1110,11 @@ namespace Automation
 
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
+
+                foreach (Control control in this.Controls)
+                {
+                    control.Enabled = true;
+                }
             }
         }
 

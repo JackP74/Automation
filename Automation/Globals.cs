@@ -1,6 +1,6 @@
 ﻿namespace Automation
 {
-    public static class RecordingGlobals
+    public static class Globals
     {
         private static int LastOrder;
 
@@ -16,5 +16,7 @@
                 return LastOrder - 1;
             }
         }
+
+        public static bool ForceStop = false;
     }
 }

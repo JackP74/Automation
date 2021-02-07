@@ -42,12 +42,12 @@ namespace Automation
 
         public void Add(Keys Key)
         {
-            Items.Add(new Move(GetWaitTime(), Key, RecordingGlobals.Order));
+            Items.Add(new Move(GetWaitTime(), Key, Globals.Order));
         }
 
         public void Add(MouseData.Type ActionType, Point Pt, MouseButtons Btn)
         {
-            Items.Add(new Move(GetWaitTime(), ActionType, Pt, Btn, RecordingGlobals.Order));
+            Items.Add(new Move(GetWaitTime(), ActionType, Pt, Btn, Globals.Order));
         }
 
         public List<Action> GetItems()
