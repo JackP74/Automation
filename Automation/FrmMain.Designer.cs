@@ -54,6 +54,7 @@ namespace Automation
             this.ListMain = new System.Windows.Forms.ListView();
             this.ColumnMisc = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.ContextListMain = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.ContextListMainEdit = new System.Windows.Forms.ToolStripMenuItem();
             this.ContextListMainDelete = new System.Windows.Forms.ToolStripMenuItem();
             this.ChkClick = new System.Windows.Forms.CheckBox();
             this.BtnNewKey = new System.Windows.Forms.Button();
@@ -176,10 +177,10 @@ namespace Automation
             this.ListMoveSpeed.FormattingEnabled = true;
             this.ListMoveSpeed.Items.AddRange(new object[] {
             "Instant",
-            "Line slow",
-            "Line fast",
-            "Curve slow",
-            "Curve fast"});
+            "Line Slow",
+            "Line Fast",
+            "Curve Slow",
+            "Curve Fast"});
             this.ListMoveSpeed.Location = new System.Drawing.Point(754, 155);
             this.ListMoveSpeed.Name = "ListMoveSpeed";
             this.ListMoveSpeed.Size = new System.Drawing.Size(86, 21);
@@ -210,6 +211,7 @@ namespace Automation
             this.TxtNewAction.Size = new System.Drawing.Size(181, 20);
             this.TxtNewAction.TabIndex = 31;
             this.TxtNewAction.Text = "0 0";
+            this.TxtNewAction.TextChanged += new System.EventHandler(this.TxtNewAction_TextChanged);
             this.TxtNewAction.KeyDown += new System.Windows.Forms.KeyEventHandler(this.TxtNewAction_KeyDown);
             this.TxtNewAction.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.TxtNewAction_KeyPress);
             this.TxtNewAction.KeyUp += new System.Windows.Forms.KeyEventHandler(this.TxtNewAction_KeyUp);
@@ -315,9 +317,17 @@ namespace Automation
             // ContextListMain
             // 
             this.ContextListMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ContextListMainEdit,
             this.ContextListMainDelete});
             this.ContextListMain.Name = "ContextListMain";
-            this.ContextListMain.Size = new System.Drawing.Size(108, 26);
+            this.ContextListMain.Size = new System.Drawing.Size(108, 48);
+            // 
+            // ContextListMainEdit
+            // 
+            this.ContextListMainEdit.Name = "ContextListMainEdit";
+            this.ContextListMainEdit.Size = new System.Drawing.Size(107, 22);
+            this.ContextListMainEdit.Text = "Edit";
+            this.ContextListMainEdit.Click += new System.EventHandler(this.ContextListMainEdit_Click);
             // 
             // ContextListMainDelete
             // 
@@ -454,8 +464,8 @@ namespace Automation
             this.Controls.Add(this.LabelImageLoc);
             this.Controls.Add(this.ChkClick);
             this.Controls.Add(this.BtnNewKey);
-            this.Controls.Add(this.ListMoveType);
             this.Controls.Add(this.BtnImageBrw);
+            this.Controls.Add(this.ListMoveType);
             this.Controls.Add(this.ListImageLoc);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FrmMain";
@@ -507,6 +517,7 @@ namespace Automation
         internal System.Windows.Forms.ComboBox ListImageLoc;
         internal System.Windows.Forms.Label LabelImageLoc;
         internal System.Windows.Forms.ComboBox ListMoveType;
+        private System.Windows.Forms.ToolStripMenuItem ContextListMainEdit;
     }
 }
 

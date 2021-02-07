@@ -210,6 +210,18 @@ namespace Automation
             KeyBoardHook.KeyUp += SetOnKey_KeyUp;
         }
 
+        private void ResetMouseMoveHandle()
+        {
+            MouseHook.MouseMove -= MouseHookNewLoc_MouseMove;
+            MouseHook.MouseMove += MouseHook_MouseMove;
+        }
+
+        private void SetMouseMoveLocHandle()
+        {
+            MouseHook.MouseMove -= MouseHook_MouseMove;
+            MouseHook.MouseMove += MouseHookNewLoc_MouseMove;
+        }
+
         private string GetName(string FullPath)
         {
             try
@@ -525,6 +537,11 @@ namespace Automation
 
                     ResetKeyHandle();
                 }
+                else if (SetTxtPosition)
+                {
+                    ResetMouseMoveHandle();
+                    SetTxtPosition = false;
+                }
             };
         }
 
@@ -704,14 +721,17 @@ namespace Automation
             }
         }
 
+        private void MouseHookNewLoc_MouseMove(object sender, HandledMouseEventArgs e)
+        {
+            if (!SetTxtPosition)
+                ResetMouseMoveHandle();
+
+            else
+                TxtNewAction.Text = $"{e.X} {e.Y}";
+        }
+
         private void MouseHook_MouseMove(object sender, HandledMouseEventArgs e)
         {
-            if (SetTxtPosition)
-            {
-                TxtNewAction.Text = $"{e.X} {e.Y}";
-                return;
-            }
-
             if (Record)
                 ImageBaseRecorder.SetFormLoc(e.Location);
         }
@@ -749,6 +769,75 @@ namespace Automation
             }
 
             ImageBaseRecorder.NewSize(NewWidth, NewHeight, e.Location);
+        }
+
+        private void ContextListMainEdit_Click(object sender, EventArgs e)
+        {
+            string SelectedKey = ListMain.SelectedItems[0].SubItems[0].Text;
+            int SelectedOrder = Convert.ToInt32(ListMain.SelectedItems[0].SubItems[1].Text);
+
+            var SelectedAction = ActionList.Items.Where(x => x.OnKey.ToString() == SelectedKey && x.Order == SelectedOrder);
+
+            if (SelectedAction == null || SelectedAction.Count() != 1)
+                return;
+
+            Action ActionToEdit = SelectedAction.First();
+
+            TempMoveAction.OnKey = ActionToEdit.OnKey;
+            TempMoveAction.Order = ActionToEdit.Order;
+            TempMoveAction.WaitTime = ActionToEdit.WaitTime;
+            TempMoveAction.LoopCount = ActionToEdit.LoopCount;
+
+            TempMoveAction.ActionKey = ActionToEdit.ActionKey;
+            TempMoveAction.ActionType = ActionToEdit.ActionType;
+            TempMoveAction.AutoClick = ActionToEdit.AutoClick;
+            TempMoveAction.ImageLoc = ActionToEdit.ImageLoc;
+            TempMoveAction.ImagePath = ActionToEdit.ImagePath;
+
+            TempMoveAction.MouseBtn = ActionToEdit.MouseBtn;
+            TempMoveAction.MouseSpeed = ActionToEdit.MouseSpeed;
+            TempMoveAction.MovePoint = ActionToEdit.MovePoint;
+            TempMoveAction.MoveType = ActionToEdit.MoveType;
+
+            TxtOnKey.Text = TempMoveAction.OnKey.ToString();
+
+            NumericWaitTime.Value = TempMoveAction.WaitTime;
+            NumericLoopCount.Value = TempMoveAction.LoopCount;
+
+            ListMoveSpeed.SelectedIndex = (int)ActionToEdit.MouseSpeed;
+            ListMoveType.SelectedItem = (int)ActionToEdit.MoveType;
+
+            ListImageLoc.SelectedIndex = (int)TempMoveAction.ImageLoc;
+
+            switch (TempMoveAction.ActionType)
+            {
+                case Action.Type.Mouse:
+                    ListActionType.SelectedIndex = 0;
+                    TxtNewAction.Text = $"{TempMoveAction.MovePoint.X} {TempMoveAction.MovePoint.Y}";
+                    break;
+
+                case Action.Type.KeyPress:
+                    ListActionType.SelectedIndex = 1;
+                    TxtNewAction.Text = $"{TempMoveAction.ActionKey}";
+                    break;
+
+                case Action.Type.ImageSearch:
+                    ListActionType.SelectedIndex = 2;
+                    TxtNewAction.Text = $"{GetName(TempMoveAction.ImagePath)}";
+                    break;
+
+                default:
+                    break;
+            }
+
+            ListActionType.Enabled = false;
+            BtnOnKey.Enabled = false;
+            ContextListMainDelete.Enabled = false;
+
+            BtnAdd.Text = "Save";
+
+            BtnAdd.Click -= BtnAdd_Click;
+            BtnAdd.Click += BtnSave_Click;
         }
 
         private void ContextListMainDelete_Click(object sender, EventArgs e)
@@ -929,13 +1018,20 @@ namespace Automation
         private void TxtNewAction_KeyDown(object sender, KeyEventArgs e)
         {
             if (!TxtNewAction.ReadOnly && e.KeyCode == Keys.Menu)
+            {
                 SetTxtPosition = true;
+                SetMouseMoveLocHandle();
+            }
         }
 
         private void TxtNewAction_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Menu)
+            {
                 SetTxtPosition = false;
+                ResetMouseMoveHandle();
+            }
+                
         }
 
         private void TxtNewAction_KeyPress(object sender, KeyPressEventArgs e)
@@ -1040,22 +1136,16 @@ namespace Automation
                 switch (TempMoveAction.ActionType)
                 {
                     case Action.Type.Mouse:
-                        {
-                            NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.MovePoint, TempMoveAction.MoveType, TempMoveAction.MouseSpeed, MouseButtons.Left, TempMoveAction.AutoClick);
-                            break;
-                        }
+                        NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.MovePoint, TempMoveAction.MoveType, TempMoveAction.MouseSpeed, MouseButtons.Left, TempMoveAction.AutoClick);
+                        break;
 
                     case Action.Type.KeyPress:
-                        {
-                            NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.ActionKey);
-                            break;
-                        }
+                        NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.ActionKey);
+                        break;
 
                     case Action.Type.ImageSearch:
-                        {
-                            NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.ImagePath, TempMoveAction.ImageLoc, TempMoveAction.MouseSpeed, TempMoveAction.AutoClick);
-                            break;
-                        }
+                        NewAction = new Action(TempMoveAction.OnKey, ActionList.GetOrder(TempMoveAction.OnKey), TempMoveAction.LoopCount, TempMoveAction.WaitTime, TempMoveAction.ImagePath, TempMoveAction.ImageLoc, TempMoveAction.MouseSpeed, TempMoveAction.AutoClick);
+                        break;
 
                     default:
                         return;
@@ -1076,6 +1166,48 @@ namespace Automation
             {
                 CMBox.Show("Error", "Couldn't add, Error: " + ex.Message, Style.Error, Buttons.OK, ex.ToString());
             }
+        }
+
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            ActionList.Items.Remove(ActionList.Items.Find(x => x.OnKey == TempMoveAction.OnKey && x.Order == TempMoveAction.Order));
+            
+            Action ModAction = new Action
+            {
+                OnKey = TempMoveAction.OnKey,
+                Order = TempMoveAction.Order,
+                WaitTime = TempMoveAction.WaitTime,
+                LoopCount = TempMoveAction.LoopCount,
+
+                ActionKey = TempMoveAction.ActionKey,
+                ActionType = TempMoveAction.ActionType,
+                AutoClick = TempMoveAction.AutoClick,
+                ImageLoc = TempMoveAction.ImageLoc,
+                ImagePath = TempMoveAction.ImagePath,
+
+                MouseBtn = TempMoveAction.MouseBtn,
+                MouseSpeed = TempMoveAction.MouseSpeed,
+                MovePoint = TempMoveAction.MovePoint,
+                MoveType = TempMoveAction.MoveType
+            };
+
+            ActionList.Items.Add(ModAction);
+
+            RefreshList();
+
+            TempMoveAction.OnKey = Keys.Escape;
+            TxtOnKey.Text = string.Empty;
+
+            SaveList();
+
+            ListActionType.Enabled = true;
+            BtnOnKey.Enabled = true;
+            ContextListMainDelete.Enabled = true;
+
+            BtnAdd.Text = "Add";
+
+            BtnAdd.Click -= BtnSave_Click;
+            BtnAdd.Click += BtnAdd_Click;
         }
 
         private void BtnRecord_Click(object sender, EventArgs e)
